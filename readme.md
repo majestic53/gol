@@ -1,6 +1,6 @@
 # Game of Life (GOL)
 
-[![License: MIT](https://shields.io/badge/license-MIT-blue.svg?style=flat)](https://github.com/majestic53/gol/blob/master/LICENSE)
+[![License: MIT](https://shields.io/badge/license-MIT-blue.svg?style=flat)](https://github.com/majestic53/gol/blob/master/LICENSE) [![Build Status](https://github.com/majestic53/gol/workflows/Build/badge.svg)](https://github.com/majestic53/gol/actions/workflows/build.yml)
 
 Conway's Game of Life, written in C.
 
