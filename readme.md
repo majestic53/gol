@@ -4,6 +4,8 @@
 
 Conway's Game of Life, written in C.
 
+![Demo](https://github.com/majestic53/gol/blob/master/docs/demo.png)
+
 ## Building from source
 
 This project is tested under GNU/Linux, using the GCC C compiler. Some modifications will be required to build with a different OS/compiler.
