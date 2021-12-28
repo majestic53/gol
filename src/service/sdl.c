@@ -24,7 +24,10 @@
 
 typedef struct {
     uint32_t tick;
-    uint32_t pixel[WIDTH][HEIGHT];
+    bool fullscreen;
+    size_t width;
+    size_t height;
+    uint32_t *pixel;
     SDL_Renderer *renderer;
     SDL_Texture *texture;
     SDL_Window *window;
@@ -36,12 +39,33 @@ static gol_sdl_t g_service = {};
 extern "C" {
 #endif /* __cplusplus */
 
-static inline int
+static int
+gol_service_fullscreen(void)
+{
+    int result = EXIT_SUCCESS;
+
+    if(SDL_SetWindowFullscreen(g_service.window, !g_service.fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0)) {
+        result = GOL_ERROR(EXIT_FAILURE);
+        goto exit;
+    }
+
+    if(SDL_ShowCursor(!g_service.fullscreen ? SDL_DISABLE : SDL_ENABLE)) {
+        result = GOL_ERROR(EXIT_FAILURE);
+        goto exit;
+    }
+
+    g_service.fullscreen = !g_service.fullscreen;
+
+exit:
+    return result;
+}
+
+static int
 gol_service_present(void)
 {
     int result = EXIT_SUCCESS;
 
-    if(SDL_UpdateTexture(g_service.texture, NULL, g_service.pixel, WIDTH * sizeof(uint32_t))) {
+    if(SDL_UpdateTexture(g_service.texture, NULL, g_service.pixel, g_service.width * sizeof(uint32_t))) {
         result = GOL_ERROR(EXIT_FAILURE);
         goto exit;
     }
@@ -66,9 +90,9 @@ int
 gol_service_clear(void)
 {
 
-    for(int y = 0; y < WIDTH; ++y) {
+    for(int y = 0; y < g_service.height; ++y) {
 
-        for(int x = 0; x < HEIGHT; ++x) {
+        for(int x = 0; x < g_service.width; ++x) {
             gol_service_pixel(false, x, y);
         }
     }
@@ -77,16 +101,28 @@ gol_service_clear(void)
 }
 
 int
-gol_service_init(void)
+gol_service_init(
+    __in uint32_t width,
+    __in uint32_t height
+    )
 {
     int result = EXIT_SUCCESS;
+
+    g_service.width = width;
+    g_service.height = height;
+
+    if(!(g_service.pixel = calloc(g_service.width * g_service.height, sizeof(uint32_t)))) {
+        result = GOL_ERROR(EXIT_FAILURE);
+        goto exit;
+    }
 
     if(SDL_Init(SDL_INIT_VIDEO)) {
         result = GOL_ERROR(EXIT_FAILURE);
         goto exit;
     }
 
-    if(!(g_service.window = SDL_CreateWindow("Game of Life", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WIDTH * SCALE, HEIGHT * SCALE, SDL_WINDOW_RESIZABLE))) {
+    if(!(g_service.window = SDL_CreateWindow("Game of Life", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+            g_service.width * SCALE, g_service.height * SCALE, SDL_WINDOW_RESIZABLE))) {
         result = GOL_ERROR(EXIT_FAILURE);
         goto exit;
     }
@@ -96,7 +132,7 @@ gol_service_init(void)
         goto exit;
     }
 
-    if(SDL_RenderSetLogicalSize(g_service.renderer, WIDTH, HEIGHT)) {
+    if(SDL_RenderSetLogicalSize(g_service.renderer, g_service.width, g_service.height)) {
         result = GOL_ERROR(EXIT_FAILURE);
         goto exit;
     }
@@ -111,7 +147,8 @@ gol_service_init(void)
         goto exit;
     }
 
-    if(!(g_service.texture = SDL_CreateTexture(g_service.renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, WIDTH, HEIGHT))) {
+    if(!(g_service.texture = SDL_CreateTexture(g_service.renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
+            g_service.width, g_service.height))) {
         result = GOL_ERROR(EXIT_FAILURE);
         goto exit;
     }
@@ -129,7 +166,7 @@ gol_service_pixel(
     __in uint32_t y
     )
 {
-    g_service.pixel[y][x] = alive ? ALIVE : DEAD;
+    g_service.pixel[(y * g_service.width) + x] = alive ? ALIVE : DEAD;
 }
 
 bool
@@ -141,6 +178,19 @@ gol_service_poll(void)
     while(SDL_PollEvent(&event)) {
 
         switch(event.type) {
+            case SDL_KEYUP:
+
+                if(!event.key.repeat) {
+
+                    switch(event.key.keysym.scancode) {
+                        case SDL_SCANCODE_F11:
+                            gol_service_fullscreen();
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                break;
             case SDL_QUIT:
                 result = false;
                 break;
@@ -189,6 +239,11 @@ gol_service_uninit(void)
     }
 
     SDL_Quit();
+
+    if(g_service.pixel) {
+        free(g_service.pixel);
+    }
+
     memset(&g_service, 0, sizeof(g_service));
 }
 

@@ -30,7 +30,10 @@ extern "C" {
 
 int gol_service_clear(void);
 
-int gol_service_init(void);
+int gol_service_init(
+    __in uint32_t width,
+    __in uint32_t height
+    );
 
 void gol_service_pixel(
     __in bool alive,

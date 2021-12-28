@@ -28,7 +28,7 @@ main(void)
 {
     int result;
 
-    if((result = gol()) != EXIT_SUCCESS) {
+    if((result = gol(256, 256)) != EXIT_SUCCESS) {
         fprintf(stderr, "ERR: %s\n", gol_error());
     }
 

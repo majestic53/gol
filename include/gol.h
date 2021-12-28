@@ -26,7 +26,10 @@
 extern "C" {
 #endif /* __cplusplus */
 
-int gol(void);
+int gol(
+    unsigned long width,
+    unsigned long height
+    );
 
 const char *gol_error(void);
 

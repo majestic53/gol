@@ -46,9 +46,6 @@
 
 #define FPS 60
 
-#define WIDTH 512
-#define HEIGHT 512
-
-#define SCALE 2
+#define SCALE 1
 
 #endif /* GOL_DEFINE_H_ */

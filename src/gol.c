@@ -26,27 +26,29 @@
 #define BIT_MASK(_X_) \
     (1 << ((_X_) % sizeof(uint8_t)))
 
-#define BIT_OFFSET(_X_, _Y_) \
-    (((_Y_) * WIDTH) / sizeof(uint8_t)) + ((_X_) / sizeof(uint8_t))
+#define BIT_OFFSET(_GOL_, _X_, _Y_) \
+    (((_Y_) * (_GOL_)->width) / sizeof(uint8_t)) + ((_X_) / sizeof(uint8_t))
 
-#define BYTE_OFFSET(_X_, _Y_) \
-    (((_Y_) * (WIDTH / sizeof(uint8_t))) + (_X_))
+#define BYTE_OFFSET(_GOL_, _X_, _Y_) \
+    (((_Y_) * ((_GOL_)->width / sizeof(uint8_t))) + (_X_))
 
 #define CELL_CHECK(_GOL_, _X_, _Y_) \
-    ((_GOL_)->previous[BIT_OFFSET(_X_, _Y_)] & BIT_MASK(_X_))
+    ((_GOL_)->previous[BIT_OFFSET(_GOL_, _X_, _Y_)] & BIT_MASK(_X_))
 
 #define CELL_CLEAR(_GOL_, _X_, _Y_) \
-    ((_GOL_)->next[BIT_OFFSET(_X_, _Y_)] &= ~BIT_MASK(_X_))
+    ((_GOL_)->next[BIT_OFFSET(_GOL_, _X_, _Y_)] &= ~BIT_MASK(_X_))
 
 #define CELL_INIT(_GOL_, _X_, _Y_) \
-    ((_GOL_)->previous[BIT_OFFSET(_X_, _Y_)] |= BIT_MASK(_X_))
+    ((_GOL_)->previous[BIT_OFFSET(_GOL_, _X_, _Y_)] |= BIT_MASK(_X_))
 
 #define CELL_SET(_GOL_, _X_, _Y_) \
-    ((_GOL_)->next[BIT_OFFSET(_X_, _Y_)] |= BIT_MASK(_X_))
+    ((_GOL_)->next[BIT_OFFSET(_GOL_, _X_, _Y_)] |= BIT_MASK(_X_))
 
 typedef struct {
-    uint8_t previous[(WIDTH / sizeof(uint8_t)) * (HEIGHT / sizeof(uint8_t))];
-    uint8_t next[(WIDTH / sizeof(uint8_t)) * (HEIGHT / sizeof(uint8_t))];
+    size_t width;
+    size_t height;
+    uint8_t *previous;
+    uint8_t *next;
 } gol_t;
 
 typedef struct {
@@ -65,16 +67,16 @@ static const gol_coordinate_t OFFSET[] = {
     {  1,  1 },
     };
 
-static inline void
+static void
 gol_display(
     __in const gol_t *gol
     )
 {
 
-    for(uint32_t y = 0; y < (HEIGHT / sizeof(uint8_t)); ++y) {
+    for(uint32_t y = 0; y < (gol->height / sizeof(uint8_t)); ++y) {
 
-        for(uint32_t x = 0; x < (WIDTH / sizeof(uint8_t)); ++x) {
-            uint8_t row = gol->previous[BYTE_OFFSET(x, y)];
+        for(uint32_t x = 0; x < (gol->width / sizeof(uint8_t)); ++x) {
+            uint8_t row = gol->previous[BYTE_OFFSET(gol, x, y)];
 
             for(uint8_t idx = 0; idx < sizeof(uint8_t); ++idx) {
                 gol_service_pixel(row & 1, x * sizeof(uint8_t), y * sizeof(uint8_t));
@@ -84,39 +86,58 @@ gol_display(
     }
 }
 
-static inline void
+static int
 gol_init(
-    __inout gol_t *gol
+    __inout gol_t *gol,
+    __in unsigned width,
+    __in uint32_t height
     )
 {
+    int result = EXIT_SUCCESS;
+
     srand(time(NULL));
+    gol->width = width;
+    gol->height = height;
 
-    for(uint32_t y = 0; y < HEIGHT; ++y) {
+    if(!(gol->previous = calloc((gol->width / sizeof(uint8_t)) * (gol->height / sizeof(uint8_t)), sizeof(uint8_t)))) {
+        result = GOL_ERROR(EXIT_FAILURE);
+        goto exit;
+    }
 
-        for(uint32_t x = 0; x < WIDTH; ++x) {
+    if(!(gol->next = calloc((gol->width / sizeof(uint8_t)) * (gol->height / sizeof(uint8_t)), sizeof(uint8_t)))) {
+        result = GOL_ERROR(EXIT_FAILURE);
+        goto exit;
+    }
+
+    for(uint32_t y = 0; y < gol->height; ++y) {
+
+        for(uint32_t x = 0; x < gol->width; ++x) {
 
             if(rand() & 1) {
                 CELL_INIT(gol, x, y);
             }
         }
     }
+
+exit:
+    return result;
 }
 
-static inline void
+static void
 gol_step(
     __inout gol_t *gol
     )
 {
 
-    for(uint32_t y = 0; y < HEIGHT; ++y) {
+    for(uint32_t y = 0; y < gol->height; ++y) {
 
-        for(uint32_t x = 0; x < WIDTH; ++x) {
+        for(uint32_t x = 0; x < gol->width; ++x) {
             uint8_t count = 0;
 
             for(uint8_t index = 0; index < 8; ++index) {
                 const gol_coordinate_t *offset = &OFFSET[index];
 
-                if(CELL_CHECK(gol, (x + offset->x) % WIDTH, (y + offset->y) % HEIGHT)) {
+                if(CELL_CHECK(gol, (x + offset->x) % gol->width, (y + offset->y) % gol->height)) {
                     ++count;
                 }
             }
@@ -139,20 +160,42 @@ gol_step(
         }
     }
 
-    memcpy(gol->previous, gol->next, sizeof(gol->next));
+    memcpy(gol->previous, gol->next, (gol->width / sizeof(uint8_t)) * (gol->height / sizeof(uint8_t)));
+}
+
+static void
+gol_uninit(
+    __inout gol_t *gol
+    )
+{
+
+    if(gol->next) {
+        free(gol->next);
+    }
+
+    if(gol->previous) {
+        free(gol->previous);
+    }
+
+    memset(gol, 0, sizeof(*gol));
 }
 
 int
-gol(void)
+gol(
+    __in unsigned long width,
+    __in unsigned long height
+    )
 {
     int result;
     gol_t gol = {};
 
-    if((result = gol_service_init()) != EXIT_SUCCESS) {
+    if((result = gol_service_init(width, height)) != EXIT_SUCCESS) {
         goto exit;
     }
 
-    gol_init(&gol);
+    if((result = gol_init(&gol, width, height)) != EXIT_SUCCESS) {
+        goto exit;
+    }
 
     while(gol_service_poll()) {
         gol_step(&gol);
@@ -164,6 +207,7 @@ gol(void)
     }
 
 exit:
+    gol_uninit(&gol);
     gol_service_uninit();
 
     return result;
