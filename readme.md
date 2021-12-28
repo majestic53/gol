@@ -79,10 +79,10 @@ This project is implemented in C and exposes a simple API, described in [include
 
 ### Available routines
 
-|Name     |Signature                        |Description              |
-|:--------|:--------------------------------|:------------------------|
-|gol      |```int gol(void)```              |Run GOL                  |
-|gol_error|```const char *gol_error(void)```|Retrieve GOL error string|
+|Name     |Signature                                  |Description              |
+|:--------|:------------------------------------------|:------------------------|
+|gol      |```int gol(unsigned long, unsigned long)```|Run GOL                  |
+|gol_error|```const char *gol_error(void)```          |Retrieve GOL error string|
 
 
 For an example, see the [launcher](https://github.com/majestic53/gol/tree/master/tool) under ```tool/```
